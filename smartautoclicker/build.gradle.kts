@@ -1,5 +1,3 @@
-import com.buzbuz.gradle.obfuscation.getExtraActualApplicationId
-
 /*
  * Copyright (C) 2025 Kevin Buzeau
  *
@@ -7,110 +5,89 @@ import com.buzbuz.gradle.obfuscation.getExtraActualApplicationId
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 plugins {
-    alias(libs.plugins.buzbuz.androidApplication)
-    alias(libs.plugins.buzbuz.obfuscation)
-    alias(libs.plugins.buzbuz.buildParameters)
-    alias(libs.plugins.buzbuz.hilt)
-}
-
-obfuscationConfig {
-    obfuscatedApplication {
-        create("com.buzbuz.smartautoclicker.application.SmartAutoClickerApplication")
-    }
-    obfuscatedComponents {
-        create("com.buzbuz.smartautoclicker.scenarios.ScenarioActivity")
-        create("com.buzbuz.smartautoclicker.SmartAutoClickerService")
-    }
-
-    setup(
-        applicationId = "com.buzbuz.smartautoclicker",
-        appNameResId = "@string/app_name",
-        shouldRandomize = buildParameters["randomizeAppId"].asBoolean() &&
-                buildParameters.isBuildForVariant("fDroid"),
-    )
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android") version "2.1.0"
+    id("dagger.hilt.android.plugin")
+    id("kotlin-kapt")
 }
 
 android {
     namespace = "com.buzbuz.smartautoclicker"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.buzbuz.smartautoclicker"
+        minSdk = 23
+        targetSdk = 34
+        versionCode = 65
+        versionName = "3.3.0-beta04"
+        multiDexEnabled = true
+    }
+
+    // ✅ Fix packaging issues for TensorFlow Lite
+    packagingOptions {
+        jniLibs {
+            pickFirsts.add("lib/**/libtensorflowlite.so")
+            pickFirsts.add("lib/**/libtensorflowlite_jni.so")
+            keepDebugSymbols.add("**/*.so")
+        }
+        resources {
+            excludes.add("META-INF/**")
+        }
+    }
+
+    buildTypes {
+        debug {
+            isMinifyEnabled = false
+            applicationIdSuffix = ".debug"
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
 
     buildFeatures {
         viewBinding = true
         buildConfig = true
     }
-
-    defaultConfig {
-        applicationId = getExtraActualApplicationId()
-
-        versionCode = 65
-        versionName = "3.3.0-beta04"
-    }
-
-    flavorDimensions += listOf("version")
-    productFlavors {
-        create("fDroid") {
-            dimension = "version"
-        }
-        create("playStore") {
-            dimension = "version"
-        }
-    }
-
-    if (buildParameters.isBuildForVariant("fDroidDebug")) {
-        buildTypes {
-            debug {
-                applicationIdSuffix = ".debug"
-            }
-        }
-    }
-
-    signingConfigs {
-        create("release") {
-            storeFile = file("./smartautoclicker.jks")
-            storePassword = buildParameters["signingStorePassword"].asString()
-            keyAlias = buildParameters["signingKeyAlias"].asString()
-            keyPassword = buildParameters["signingKeyPassword"].asString()
-        }
-    }
-}
-
-// Apply signature convention after declaring the signingConfigs
-apply { plugin(libs.plugins.buzbuz.androidSigning.get().pluginId) }
-
-// Only apply gms/firebase plugins if we are building for the play store
-if (buildParameters.isBuildForVariant("playStoreRelease")) {
-    apply { plugin(libs.plugins.buzbuz.crashlytics.get().pluginId) }
 }
 
 dependencies {
-    implementation(libs.kotlinx.coroutines.core)
+    // ✅ Core AndroidX Libraries
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-common-java8:2.7.0")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
 
-    implementation(libs.androidx.appCompat)
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.core.splashscreen)
-    implementation(libs.androidx.datastore)
-    implementation(libs.androidx.recyclerView)
-    implementation(libs.androidx.fragment.ktx)
+    // ✅ UI & Material Components
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("com.airbnb.android:lottie:6.0.0")
 
-    implementation(libs.androidx.lifecycle.extensions)
-    implementation(libs.androidx.lifecycle.viewmodel.ktx)
-    implementation(libs.androidx.lifecycle.livedata.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.lifecycle.common.java8)
+    // ✅ TensorFlow Lite Dependencies (Optimized & Fixed)
+    implementation("org.tensorflow:tensorflow-lite:2.16.0")
+    implementation("org.tensorflow:tensorflow-lite-support:2.16.0")
+    implementation("org.tensorflow:tensorflow-lite-metadata:2.16.0")
+    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.16.0")
+    implementation("org.tensorflow:tensorflow-lite-delegates-gpu:2.16.0")
+    implementation("org.tensorflow:tensorflow-lite-delegates-nnapi:2.16.0")
 
-    implementation(libs.airbnb.lottie)
-    implementation(libs.google.material)
+    // ✅ Kotlin Coroutines for Async Processing
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.1")
 
+    // ✅ Dagger Hilt (Dependency Injection)
+    implementation("com.google.dagger:hilt-android:2.50")
+    kapt("com.google.dagger:hilt-compiler:2.50")
+
+    // ✅ Required Project Modules
     implementation(project(":core:common:base"))
     implementation(project(":core:common:bitmaps"))
     implementation(project(":core:common:display"))
@@ -123,7 +100,6 @@ dependencies {
     implementation(project(":core:smart:detection"))
     implementation(project(":core:smart:domain"))
     implementation(project(":core:smart:processing"))
-
     implementation(project(":feature:backup"))
     implementation(project(":feature:notifications"))
     implementation(project(":feature:quick-settings-tile"))
